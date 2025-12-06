@@ -16,6 +16,7 @@ jobs:
     - name: Set up Java
       uses: actions/setup-java@v3
       with:
+        distribution: 'temurin'  # obligatoire
         java-version: '17'
 
     - name: SonarQube Scan
@@ -25,5 +26,6 @@ jobs:
       with:
         args: >
           -Dsonar.projectKey=user-management
+          -Dsonar.sources=.
           -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
