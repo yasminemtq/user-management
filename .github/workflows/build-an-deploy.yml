@@ -12,79 +12,83 @@ jobs:
 
     steps:
 
-      # 1️⃣ Checkout code
-      - name: Checkout
-        uses: actions/checkout@v4
+      # Checkout code
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
-      # 2️⃣ Install JDK 21
+        # Set up JDK 21
       - name: Set up JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v1
         with:
-          distribution: 'temurin'
           java-version: 21
 
-      # 3️⃣ Setup Maven (Windows)
-      - name: Setup Maven on Windows
+      - name: Setup Maven
         shell: powershell
         run: |
-          if (-Not (Test-Path "$env:USERPROFILE\maven\apache-maven-3.8.8\bin\mvn.cmd")) {
-            Invoke-WebRequest -Uri "https://archive.apache.org/dist/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.zip" -OutFile "maven.zip"
-            Expand-Archive -Path "maven.zip" -DestinationPath "$env:USERPROFILE\maven"
-          }
           echo "MAVEN_HOME=$env:USERPROFILE\maven\apache-maven-3.8.8" >> $env:GITHUB_ENV
           echo "$env:USERPROFILE\maven\apache-maven-3.8.8\bin" >> $env:GITHUB_PATH
+        #      - name: Setup Maven
+        #        shell: powershell
+        #        run: |
+        #          Invoke-WebRequest -Uri "https://downloads.apache.org/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.zip" -OutFile "maven.zip"
+        #          Expand-Archive -Path "maven.zip" -DestinationPath "$env:USERPROFILE\maven"
+        #          echo "MAVEN_HOME=$env:USERPROFILE\maven\apache-maven-3.8.8" >> $env:GITHUB_ENV
+        #          echo "$env:USERPROFILE\maven\apache-maven-3.8.8\bin" >> $env:GITHUB_PATH
 
-      # 4️⃣ Build + Analyze (CMD = fiable sous Windows)
-      - name: Build and Analyze with SonarQube
-        shell: cmd
+        #      - name: Install Maven manually for macos runners
+        #        run: |
+        #          rm -rf $HOME/maven/apache-maven-3.8.8
+        #          curl -O https://downloads.apache.org/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.tar.gz
+        #          tar -xvzf apache-maven-3.8.8-bin.tar.gz
+        #          mv apache-maven-3.8.8 $HOME/maven
+        #          echo "MAVEN_HOME=$HOME/maven" >> $GITHUB_ENV
+        #          echo "$HOME/maven/bin" >> $GITHUB_PATH
+
+        # Build and SonarQube analysis
+      - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: >
-          mvn -B verify sonar:sonar
-          -Dsonar.projectKey=user-management
-          -Dsonar.sources=.
-          -Dsonar.host.url=%SONAR_HOST_URL%
-          -Dsonar.login=%SONAR_TOKEN%
+        run: |
+          mvn -B verify sonar:sonar -Dsonar.project.settings=./sonar-project.properties
+        shell: cmd
 
-      # 5️⃣ Build Docker image
+        # Build Docker image
       - name: Build Docker image
-        run: docker build -t carikk/quality-gate:latest .
+        run: |
+          docker build -t carikk/quality-gate:latest .
 
-      # 6️⃣ Login DockerHub
+        # Push Docker image to DockerHub or other container registry
       - name: Log in to DockerHub
         shell: powershell
         run: |
           docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
-
-      # 7️⃣ Push Docker image
       - name: Push Docker image
-        run: docker push carikk/quality-gate:latest
-
-      # 8️⃣ Setup kubeconfig
-      - name: Setup kubeconfig
-        shell: powershell
         run: |
-          New-Item -ItemType Directory -Force -Path "$HOME\.kube"
-          Set-Content -Path "$HOME\.kube\config" -Value "${{ secrets.KUBECONFIG_CONTENT }}"
-          kubectl config use-context docker-desktop
+          docker push carikk/quality-gate:latest
+
+
+      # Set up kubeconfig from secret
+      - name: Set up kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
+          kubectl config use-context docker-desktop  # Set context to docker-desktop
           kubectl config set-context --current --namespace=ensakh
 
-      # 9️⃣ Verify Kubernetes context
+      # Verify Kubernetes context
       - name: Verify Kubernetes context
         run: |
           kubectl config current-context
           kubectl get namespaces
 
-      # 🔟 Deploy to Kubernetes
-      - name: Deploy to Kubernetes
-        run: kubectl apply -f k8s/deployment.yaml
-
-      # 11️⃣ Verify pods
-      - name: Verify Deployment
+      - name: Deploy to kube
         run: |
+          kubectl apply -f k8s/deployment.yaml
+
+      - name: Verify Kubernetes context
+        run: |
+          kubectl config current-context
           kubectl get nodes
           kubectl get namespaces
           kubectl get pods
