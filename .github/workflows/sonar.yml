@@ -16,16 +16,19 @@ jobs:
     - name: Set up Java
       uses: actions/setup-java@v3
       with:
-        distribution: 'temurin'  # obligatoire
+        distribution: 'temurin'
         java-version: '17'
 
-    - name: SonarQube Scan
-      uses: SonarSource/sonarcloud-github-action@v1
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-        args: >
-          -Dsonar.projectKey=user-management
-          -Dsonar.sources=.
-          -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+    - name: Install SonarScanner
+      run: |
+        choco install sonar-scanner -y
+      shell: powershell
+
+    - name: Run SonarQube Analysis
+      run: |
+        sonar-scanner ^
+          -Dsonar.projectKey=user-management ^
+          -Dsonar.sources=. ^
+          -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} ^
           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      shell: powershell
