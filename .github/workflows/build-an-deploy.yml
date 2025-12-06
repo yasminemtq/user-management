@@ -29,14 +29,13 @@ jobs:
       - name: Setup Maven
         shell: powershell
         run: |
-          # Vérifie si Maven existe, sinon télécharge et installe
-          if (-Not (Test-Path "$env:USERPROFILE\maven\apache-maven-3.8.8\bin\mvn.cmd")) {
-            Invoke-WebRequest -Uri "https://downloads.apache.org/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.zip" -OutFile "maven.zip"
-            Expand-Archive -Path "maven.zip" -DestinationPath "$env:USERPROFILE\maven"
+          $mavenDir = "$env:USERPROFILE\maven\apache-maven-3.8.8"
+          if (-Not (Test-Path "$mavenDir\bin\mvn.cmd")) {
+              Invoke-WebRequest -Uri "https://archive.apache.org/dist/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.zip" -OutFile "maven.zip"
+              Expand-Archive -Path "maven.zip" -DestinationPath "$env:USERPROFILE\maven"
           }
-          # Ajoute Maven aux variables d'environnement
-          echo "MAVEN_HOME=$env:USERPROFILE\maven\apache-maven-3.8.8" >> $env:GITHUB_ENV
-          echo "$env:USERPROFILE\maven\apache-maven-3.8.8\bin" >> $env:GITHUB_PATH
+          echo "MAVEN_HOME=$mavenDir" >> $env:GITHUB_ENV
+          echo "$mavenDir\bin" >> $env:GITHUB_PATH
 
       # 4️⃣ Build et SonarQube analysis
       - name: Build and analyze
@@ -67,6 +66,7 @@ jobs:
 
       # 8️⃣ Setup kubeconfig
       - name: Set up kubeconfig
+        shell: powershell
         run: |
           echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
           kubectl config use-context docker-desktop
@@ -74,16 +74,19 @@ jobs:
 
       # 9️⃣ Verify Kubernetes context
       - name: Verify Kubernetes context
+        shell: powershell
         run: |
           kubectl config current-context
           kubectl get namespaces
 
       # 🔟 Deploy to Kubernetes
       - name: Deploy to kube
+        shell: powershell
         run: kubectl apply -f k8s/deployment.yaml
 
       # 11️⃣ Verify deployment
-      - name: Verify Kubernetes
+      - name: Verify Kubernetes deployment
+        shell: powershell
         run: |
           kubectl get nodes
           kubectl get namespaces
