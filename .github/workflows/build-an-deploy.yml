@@ -42,26 +42,27 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        shell: powershell
         run: |
           mvn -B verify sonar:sonar `
-            -Dsonar.projectKey=user-management `
-            -Dsonar.sources=. `
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} `
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-        shell: powershell
+            -Dsonar.projectKey="user-management" `
+            -Dsonar.sources="." `
+            -Dsonar.host.url="$env:SONAR_HOST_URL" `
+            -Dsonar.login="$env:SONAR_TOKEN"
 
       # 5️⃣ Build Docker image
       - name: Build Docker image
+        shell: powershell
         run: docker build -t carikk/quality-gate:latest .
 
       # 6️⃣ Login Docker
       - name: Log in to DockerHub
         shell: powershell
-        run: |
-          docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
+        run: docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
 
       # 7️⃣ Push Docker image
       - name: Push Docker image
+        shell: powershell
         run: docker push carikk/quality-gate:latest
 
       # 8️⃣ Setup kubeconfig
